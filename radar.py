@@ -13,13 +13,18 @@ _z_table = np.array([
     0.1692,   0.2407,   0.3424,   0.4870,   0.6927,   0.9852,   1.401,
     1.993,    2.835])
     
+#-------------------------------------------------------------------
+# Define the x and z value limit check conditions     
 # invert the z value limit checks to get the equivalent x value limits
+
 _x_optical_limit = np.sqrt(4.*5/np.pi)
 _x_rayleigh_limit = (4.*0.03/(9. * np.pi**5))**(1./6)
-
+_z_optical_limit = 5
+_z_rayleigh_limit = 0.03
 
 def diameter_to_rcs(diameter, frequency):
 
+ 
     wavelength = c/frequency
     x = diameter/wavelength
     
@@ -28,6 +33,7 @@ def diameter_to_rcs(diameter, frequency):
     rayleigh_cond = x < _x_rayleigh_limit
     mie_cond = np.logical_not(optical_cond, rayleigh_cond)
 
+    # allocate some space for the results
     z = np.empty_like(diameter)
 
     # are we in the optical regime?
@@ -47,17 +53,22 @@ def rcs_to_diameter(rcs, frequency):
     wavelength = c/frequency
     z = rcs/(wavelength**2)
 
-    # are we in the optical regime?
-    if z > 5:
-        x = np.sqrt(4.*z/np.pi)
+   # Vectorize all the things
+    optical_cond = z > _z_optical_limit
+    rayleigh_cond = z < _z_rayleigh_limit
+    mie_cond = np.logical_not(optical_cond, rayleigh_cond)
+
+    # allocate some space for the results
+    x = np.empty_like(rcs)
+
+   # are we in the optical regime?
+    x[optical_cond] = np.sqrt(4.*z[optical_cond]/np.pi)
 
     # are we in the Rayleigh regime?
-    elif z < 0.03:
-        x = (4.*z/(9. * np.pi**5))**(1./6.)
+    x[rayleigh_cond] = (4.*z[rayleigh_cond]/(9. * np.pi**5))**(1./6.)
 
     # we are in the Mie resonance regime
-    else:
-        x = np.interp(z, _z_table, _x_table)
+    x[mie_cond] = np.interp(z[mie_cond], _z_table, _x_table)
 
     return x*wavelength
 
@@ -66,10 +77,11 @@ if __name__ == '__main__':
     
     frequency = 400e6
 
-    diameter = np.logspace(0.01, 10)
+    diameter = np.linspace(0.001, 10)
 
     rcs = diameter_to_rcs(diameter, frequency)
 
     diameter_check = rcs_to_diameter(rcs, frequency)
 
-    print(f'{d:25.3f}  {diameter_check:25.3f}')
+    for d, c in zip(diameter, diameter_check):
+        print(f'{d:25.3f}  {c:25.3f}')
