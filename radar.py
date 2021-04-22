@@ -23,17 +23,21 @@ def diameter_to_rcs(diameter, frequency):
     wavelength = c/frequency
     x = diameter/wavelength
     
+    # Vectorize all the things
+    optical_cond = x > _x_optical_limit
+    rayleigh_cond = x < _x_rayleigh_limit
+    mie_cond = np.logical_not(optical_cond, rayleigh_cond)
+
+    z = np.empty_like(diameter)
+
     # are we in the optical regime?
-    if x > _x_optical_limit:
-        z = np.pi * x**2 / np.pi
+    z[optical_cond] = np.pi * x[optical_cond]**2 / np.pi
 
     # are we in the Rayleigh regime?
-    elif x < _x_rayleigh_limit:
-        z = 9. * x**6 * np.pi**5 / 4.
+    z[rayleigh_cond] = 9. * x[rayleigh_cond]**6 * np.pi**5 / 4
     
     # we are in the Mie resonance regime    
-    else:
-        z = np.interp(x, _x_table, _z_table)
+    z[mie_cond] = np.interp(x[mie_cond], _x_table, _z_table)
 
     return z * wavelength**2 
 
@@ -64,10 +68,8 @@ if __name__ == '__main__':
 
     diameter = np.logspace(0.01, 10)
 
-    for d in diameter:
+    rcs = diameter_to_rcs(diameter, frequency)
 
-        rcs = diameter_to_rcs(d, frequency)
+    diameter_check = rcs_to_diameter(rcs, frequency)
 
-        diameter_check = rcs_to_diameter(rcs, frequency)
-
-        print(f'{d:25.3f}  {diameter_check:25.3f}')
+    print(f'{d:25.3f}  {diameter_check:25.3f}')
