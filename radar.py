@@ -1,6 +1,10 @@
 import numpy as np
-from scipy.constants import c
-    
+import scipy.constants
+
+#-------------------------------------------------------------------
+# Look up tables for the piecewise approximation function
+#-------------------------------------------------------------------
+
 _x_table = np.array([
     0.10997,  0.11685,  0.12444,  0.13302,  0.14256,  0.15256,  0.16220,
     0.17138,  0.18039,  0.18982,  0.20014,  0.21237,  0.22902,  0.25574,
@@ -15,7 +19,7 @@ _z_table = np.array([
     
 #-------------------------------------------------------------------
 # Define the x and z value limit check conditions     
-# invert the z value limit checks to get the equivalent x value limits
+#-------------------------------------------------------------------
 
 _x_optical_limit = np.sqrt(4.*5/np.pi)
 _x_rayleigh_limit = (4.*0.03/(9. * np.pi**5))**(1./6)
@@ -24,20 +28,19 @@ _z_rayleigh_limit = 0.03
 
 def diameter_to_rcs(diameter, frequency):
 
- 
-    wavelength = c/frequency
+    wavelength = scipy.constants.c/frequency
     x = diameter/wavelength
     
-    # Vectorize all the things
-    optical_cond = x > _x_optical_limit
-    rayleigh_cond = x < _x_rayleigh_limit
-    mie_cond = np.logical_not(optical_cond, rayleigh_cond)
+    # Vectorize all the things and make sure they work with scalar inputs
+    optical_cond  = np.asarray(x > _x_optical_limit)
+    rayleigh_cond = np.asarray(x < _x_rayleigh_limit)
+    mie_cond = np.logical_not(np.logical_or(optical_cond, rayleigh_cond))
 
     # allocate some space for the results
     z = np.empty_like(diameter)
 
     # are we in the optical regime?
-    z[optical_cond] = np.pi * x[optical_cond]**2 / np.pi
+    z[optical_cond] = np.pi * x[optical_cond]**2 / 4
 
     # are we in the Rayleigh regime?
     z[rayleigh_cond] = 9. * x[rayleigh_cond]**6 * np.pi**5 / 4
@@ -50,13 +53,13 @@ def diameter_to_rcs(diameter, frequency):
 
 def rcs_to_diameter(rcs, frequency):
 
-    wavelength = c/frequency
+    wavelength = scipy.constants.c/frequency
     z = rcs/(wavelength**2)
 
-   # Vectorize all the things
-    optical_cond = z > _z_optical_limit
-    rayleigh_cond = z < _z_rayleigh_limit
-    mie_cond = np.logical_not(optical_cond, rayleigh_cond)
+    # Vectorize all the things and make sure they work with scalar inputs
+    optical_cond  = np.asarray(z > _z_optical_limit)
+    rayleigh_cond = np.asarray(z < _z_rayleigh_limit)
+    mie_cond = np.logical_not(np.logical_or(optical_cond, rayleigh_cond))
 
     # allocate some space for the results
     x = np.empty_like(rcs)
@@ -65,7 +68,7 @@ def rcs_to_diameter(rcs, frequency):
     x[optical_cond] = np.sqrt(4.*z[optical_cond]/np.pi)
 
     # are we in the Rayleigh regime?
-    x[rayleigh_cond] = (4.*z[rayleigh_cond]/(9. * np.pi**5))**(1./6.)
+    x[rayleigh_cond] = (4.*z[rayleigh_cond]/(9. * np.pi**5))**(1./6)
 
     # we are in the Mie resonance regime
     x[mie_cond] = np.interp(z[mie_cond], _z_table, _x_table)
@@ -79,9 +82,18 @@ if __name__ == '__main__':
 
     diameter = np.linspace(0.001, 10)
 
+    # calculate the RCS from the diameter
     rcs = diameter_to_rcs(diameter, frequency)
 
+    # now try inverting the equation to get the diameter back
     diameter_check = rcs_to_diameter(rcs, frequency)
 
+    # do we match?
+    print(np.allclose(diameter, diameter_check, rtol=0.001))
+
+    # where did we fail?
     for d, c in zip(diameter, diameter_check):
-        print(f'{d:25.3f}  {c:25.3f}')
+        print(f'{d:25.3f}  {c:25.3f}   {d==c:10b}  {(c-d)/d:12.7e}')
+
+    test_rcs = diameter_to_rcs(diameter[0], frequency)
+    rcs_to_diameter(test_rcs, frequency)
