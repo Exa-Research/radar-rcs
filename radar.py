@@ -88,6 +88,54 @@ def norm_rcs_to_norm_diameter(z):
     return x
 
 
+def diameter_to_rcs(frequency, diameter):
+
+    wavelength = scipy.constants.c / frequency
+    norm_diameter = diameter/wavelength
+    norm_rcs = norm_diameter_to_norm_rcs(norm_diameter)
+    rcs = norm_rcs * wavelength**2
+    return rcs
+
+
+def rcs_to_diameter(frequency, rcs):
+
+    wavelength = scipy.constants.c / frequency
+    norm_rcs = rcs/(wavelength**2)
+    norm_diameter = norm_rcs_to_norm_diameter(norm_rcs)
+    diameter = norm_diameter * wavelength
+    return diameter
+
+
+def plot_rcs(frequency, diameter=None, ref_diameter=None):
+
+    # default diameters range is 0.01 to 10 meters
+    if diameter is None:
+        diameter = np.logspace(-2, 1)
+
+    # default reference diameters are 2 cm, 10 cm, 1, 5, and 10 m
+    if ref_diameter is None:
+        ref_diameter = np.array([0.02, 0.1, 1, 5, 10])
+
+    # calculate the RCS values
+    rcs = radar.diameter_to_rcs(freq, diameter)
+    ref_rcs = radar.diameter_to_rcs(frequency, ref_diameter)
+
+    # Plot the results
+    locator = LogLocator(base=10, subs=(0.2, 0.5, 1))
+    fig, ax = plt.subplots(figsize=(10,6))
+    ax.plot(diameter, rcs)
+    ax.scatter(ref_diameter, ref_rcs)
+    ax.set_xscale('log')
+    ax.set_yscale('log')
+    ax.set_xlim(xmin=0.01)
+    #ax.set_ylim(ymin=-40, ymax=20)
+    ax.set_xlabel('Sphere Diameter [m]')
+    ax.set_ylabel('RCS [$m^2$]')
+    ax.set_title('Eglin AN/FPS-85 at 422 MHz')
+    ax.xaxis.set_major_formatter(formatter);
+    ax.xaxis.set_major_locator(locator)
+
+
 if __name__ == '__main__':
     
     frequency = 400e6
