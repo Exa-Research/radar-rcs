@@ -1,6 +1,7 @@
 import numpy as np
 import scipy.constants
 import matplotlib.pyplot as plt
+from matplotlib.ticker import FuncFormatter, LogLocator
 
 #-------------------------------------------------------------------
 # Look up tables for the piecewise approximation function g(z). Note
@@ -106,34 +107,51 @@ def rcs_to_diameter(frequency, rcs):
     return diameter
 
 
-def plot_rcs(frequency, diameter=None, ref_diameter=None):
+def plot_rcs(frequency, title=None, diameter=None, ref_diameter=None):
 
-    # default diameters range is 0.01 to 10 meters
+    # Default diameters range is 0.01 to 10 meters. We'll use these to 
+    # plot the background smooth curve.
+
     if diameter is None:
         diameter = np.logspace(-2, 1)
+    rcs = diameter_to_rcs(frequency, diameter)
 
-    # default reference diameters are 2 cm, 10 cm, 1, 5, and 10 m
+    # Default reference diameters are 2 cm, 10 cm, 1, 5, and 10 m. We'll use
+    # these to annotate specific points on the curve
+
     if ref_diameter is None:
         ref_diameter = np.array([0.02, 0.1, 1, 5, 10])
+    ref_rcs = diameter_to_rcs(frequency, ref_diameter)
 
-    # calculate the RCS values
-    rcs = radar.diameter_to_rcs(freq, diameter)
-    ref_rcs = radar.diameter_to_rcs(frequency, ref_diameter)
+    if title is None:
+        title = f'RCS at Frequency {frequency/1e6} MHz'
 
     # Plot the results
     locator = LogLocator(base=10, subs=(0.2, 0.5, 1))
-    fig, ax = plt.subplots(figsize=(10,6))
+    formatter = FuncFormatter(lambda y, _: '{:.16g}'.format(y))
+
+    fig, ax = plt.subplots(figsize=(15,10))
     ax.plot(diameter, rcs)
     ax.scatter(ref_diameter, ref_rcs)
+    ax.annotate(f'Reference spheres at {ref_diameter} m', xy=(0.5, 0.1), xycoords='axes fraction', 
+                ha='center')
+    # label the reference points
+    for i, txt in enumerate(ref_rcs):
+        ax.annotate(f'{txt:.3g}' , xy=(ref_diameter[i], ref_rcs[i]), textcoords='offset points', 
+                    xytext=(-30, 10))
+        
     ax.set_xscale('log')
     ax.set_yscale('log')
     ax.set_xlim(xmin=0.01)
     #ax.set_ylim(ymin=-40, ymax=20)
     ax.set_xlabel('Sphere Diameter [m]')
     ax.set_ylabel('RCS [$m^2$]')
-    ax.set_title('Eglin AN/FPS-85 at 422 MHz')
+    ax.set_title(title)
     ax.xaxis.set_major_formatter(formatter);
     ax.xaxis.set_major_locator(locator)
+    ax.yaxis.set_major_formatter(formatter)
+    for s in ['top', 'right']:
+        ax.spines[s].set_visible(False)
 
 
 if __name__ == '__main__':
