@@ -37,7 +37,7 @@ def plot_g_z_table():
     ax.spines['right'].set_visible(False)
 
 #-------------------------------------------------------------------
-# Define the x and z value limit check conditions     
+# Define the x and z value limit check conditions
 #-------------------------------------------------------------------
 
 _z_optical_limit = 5
@@ -45,8 +45,8 @@ _z_rayleigh_limit = 0.03
 _x_optical_limit = np.sqrt(4. * _z_optical_limit/np.pi)
 _x_rayleigh_limit = (4. * _z_rayleigh_limit/(9. * np.pi**5))**(1./6)
 
-def norm_diameter_to_norm_rcs(x):
-    
+def norm_diameter_to_norm_rcs(x: np.float64) -> np.array(np.float64):
+
     # Vectorize all the things and make sure they work with scalar inputs
     optical_cond  = np.asarray(x > _x_optical_limit)
     rayleigh_cond = np.asarray(x < _x_rayleigh_limit)
@@ -60,8 +60,8 @@ def norm_diameter_to_norm_rcs(x):
 
     # are we in the Rayleigh regime?
     z[rayleigh_cond] = 9. * x[rayleigh_cond]**6 * np.pi**5 / 4
-    
-    # we are in the Mie resonance regime    
+
+    # we are in the Mie resonance regime
     z[mie_cond] = np.interp(x[mie_cond], _x_table, _z_table)
 
     return z
@@ -89,7 +89,17 @@ def norm_rcs_to_norm_diameter(z):
     return x
 
 
-def diameter_to_rcs(frequency, diameter):
+def diameter_to_rcs(frequency: float, diameter: float) -> float:
+    """Calculates the radar cross section (RCS) of a sphere at the specified
+    based on the radar frequency.
+
+    Args:
+        frequency (float): Frequency of the radar in Hz.
+        diameter (float): Diameter of the sphere in m.
+
+    Returns:
+        float: Radar cross section in m^2.
+    """
 
     wavelength = scipy.constants.c / frequency
     norm_diameter = diameter/wavelength
@@ -107,9 +117,22 @@ def rcs_to_diameter(frequency, rcs):
     return diameter
 
 
-def plot_rcs(frequency, title=None, diameter=None, ref_diameter=None):
+def plot_rcs(frequency, title=None, diameter=None, ref_diameter=None, use_db_scale=None, figsize=None):
+    """Plots the radar cross section (RCS) as a function of diameter for a radar operating
+    at the specified frequency.
 
-    # Default diameters range is 0.01 to 10 meters. We'll use these to 
+    Args:
+        frequency ([type]): Frequency of the radar in Hz.
+        title ([type], optional): A text string to display as the title of the figure. Defaults to None.
+        diameter ([type], optional): An array or list of diameters [m] used to generate the continous line. If None then
+        we'll use values in the range from 0.01 to 10 meters. Defaults to None.
+        ref_diameter ([type], optional): An array or list of diameters [m] used to mark particular reference points
+        on the graph. If none then we'll use values of 0.02, 0.1, 1, 5, and 10 meters. Defaults to None.
+        use_db_scale ([type], optional): Flag to indicate whether the Y-axis should be expressed in decibels dB m^2
+        or linear units. The default value is True.
+    """
+
+    # Default diameters range is 0.01 to 10 meters. We'll use these to
     # plot the background smooth curve.
 
     if diameter is None:
@@ -126,26 +149,39 @@ def plot_rcs(frequency, title=None, diameter=None, ref_diameter=None):
     if title is None:
         title = f'RCS at Frequency {frequency/1e6} MHz'
 
+    if use_db_scale is None:
+        use_db_scale = True
+
+    if figsize is None:
+        figsize = (10, 7)
+
     # Plot the results
     locator = LogLocator(base=10, subs=(0.2, 0.5, 1))
     formatter = FuncFormatter(lambda y, _: '{:.16g}'.format(y))
 
-    fig, ax = plt.subplots(figsize=(15,10))
+    fig, ax = plt.subplots(figsize=figsize)
+
+    if use_db_scale:
+        ax.set_ylabel('RCS [dB sm]')
+        rcs = 10*np.log10(rcs)
+        ref_rcs = 10*np.log10(ref_rcs)
+    else:
+        ax.set_yscale('log')
+        ax.set_ylabel('RCS [$m^2$]')
+
+    ax.set_xscale('log')
+    ax.set_xlim(xmin=0.01)
+    ax.set_xlabel('Sphere Diameter [m]')
+
     ax.plot(diameter, rcs)
     ax.scatter(ref_diameter, ref_rcs)
-    ax.annotate(f'Reference spheres at {ref_diameter} m', xy=(0.5, 0.1), xycoords='axes fraction', 
+    ax.annotate(f'Reference spheres at {ref_diameter} m', xy=(0.5, 0.1), xycoords='axes fraction',
                 ha='center')
     # label the reference points
     for i, txt in enumerate(ref_rcs):
-        ax.annotate(f'{txt:.3g}' , xy=(ref_diameter[i], ref_rcs[i]), textcoords='offset points', 
+        ax.annotate(f'{txt:.3g}' , xy=(ref_diameter[i], ref_rcs[i]), textcoords='offset points',
                     xytext=(-30, 10))
-        
-    ax.set_xscale('log')
-    ax.set_yscale('log')
-    ax.set_xlim(xmin=0.01)
-    #ax.set_ylim(ymin=-40, ymax=20)
-    ax.set_xlabel('Sphere Diameter [m]')
-    ax.set_ylabel('RCS [$m^2$]')
+
     ax.set_title(title)
     ax.xaxis.set_major_formatter(formatter);
     ax.xaxis.set_major_locator(locator)
@@ -155,7 +191,7 @@ def plot_rcs(frequency, title=None, diameter=None, ref_diameter=None):
 
 
 if __name__ == '__main__':
-    
+
     frequency = 400e6
 
     diameter = np.linspace(0.001, 10)
