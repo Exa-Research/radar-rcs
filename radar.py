@@ -162,11 +162,11 @@ def plot_rcs(frequency, title=None, diameter=None, ref_diameter=None, use_db_sca
         diameter = np.logspace(-2, 1)
     rcs = diameter_to_rcs(frequency, diameter)
 
-    # Default reference diameters are 2 cm, 10 cm, 1, 5, and 10 m. We'll use
+    # Default reference diameters are 2 cm, 5 cm, 10 cm, 50 cm, 1 m, 2 m, 5 m, and 10 m. We'll use
     # these to annotate specific points on the curve
 
     if ref_diameter is None:
-        ref_diameter = np.array([0.02, 0.1, 1, 5, 10])
+        ref_diameter = np.array([0.02, 0.05, 0.1, 0.2, 0.5, 1, 2, 5, 10])
     ref_rcs = diameter_to_rcs(frequency, ref_diameter)
 
     if title is None:
@@ -200,7 +200,7 @@ def plot_rcs(frequency, title=None, diameter=None, ref_diameter=None, use_db_sca
 
     ax.plot(diameter, rcs, color='black')
     ax.scatter(ref_diameter, ref_rcs, color='black')
-    ax.annotate(f'Reference spheres at {ref_diameter} m', xy=(0.5, 0.1), xycoords='axes fraction',
+    ax.annotate(f'Reference spheres of diameter {ref_diameter} m', xy=(0.5, 0.1), xycoords='axes fraction',
                 ha='center')
     # label the reference points
     for i, txt in enumerate(ref_rcs):
