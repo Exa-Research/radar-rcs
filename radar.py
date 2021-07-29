@@ -1,3 +1,13 @@
+# SPDX-FileCopyrightText: © 2021 Exa Research, LLC <tj@exaresearch.com>
+
+#-------------------------------------------------------------------
+# This file implements various routines used to calculate the radar cross
+# section of a sphere given it's diameter and radar frequency. It uses the
+# NASA Size Estimation Model (SEM) as documented in "Haystack and HAX Radar
+# Measurements of the Orbital Debris Environment; 2003", Section 4.0.
+# https://www.orbitaldebris.jsc.nasa.gov/library/haystack_hax_radar2003.pdf
+#-------------------------------------------------------------------
+
 import numpy as np
 import scipy.constants
 import matplotlib.pyplot as plt
@@ -45,7 +55,7 @@ _z_rayleigh_limit = 0.03
 _x_optical_limit = np.sqrt(4. * _z_optical_limit/np.pi)
 _x_rayleigh_limit = (4. * _z_rayleigh_limit/(9. * np.pi**5))**(1./6)
 
-def norm_diameter_to_norm_rcs(x: np.float64) -> np.array(np.float64):
+def norm_diameter_to_norm_rcs(x: float) -> float:
 
     # Vectorize all the things and make sure they work with scalar inputs
     optical_cond  = np.asarray(x > _x_optical_limit)
@@ -67,7 +77,7 @@ def norm_diameter_to_norm_rcs(x: np.float64) -> np.array(np.float64):
     return z
 
 
-def norm_rcs_to_norm_diameter(z):
+def norm_rcs_to_norm_diameter(z: float) -> float:
 
     # Vectorize all the things and make sure they work with scalar inputs
     optical_cond  = np.asarray(z > _z_optical_limit)
@@ -91,27 +101,37 @@ def norm_rcs_to_norm_diameter(z):
 
 def diameter_to_rcs(frequency: float, diameter: float) -> float:
     """Calculates the radar cross section (RCS) of a sphere at the specified
-    based on the radar frequency.
+    diameter based on the radar frequency.
 
     Args:
         frequency (float): Frequency of the radar in Hz.
-        diameter (float): Diameter of the sphere in m.
+        diameter (float or array of floats): Diameter of the sphere in m.
 
     Returns:
-        float: Radar cross section in m^2.
+        float or array of floats: Radar cross section in m^2.
     """
 
     wavelength = scipy.constants.c / frequency
-    norm_diameter = diameter/wavelength
+    norm_diameter = np.asarray(diameter)/wavelength
     norm_rcs = norm_diameter_to_norm_rcs(norm_diameter)
     rcs = norm_rcs * wavelength**2
     return rcs
 
 
-def rcs_to_diameter(frequency, rcs):
+def rcs_to_diameter(frequency: float, rcs: float) -> float:
+    """Calculates the diameter of a sphere given its RCS based on the
+    radar frequency.
+
+    Args:
+        frequency (float): Frequency of the radar in Hz.
+        rcs (float): Radar cross section in m^2.
+
+    Returns:
+        float: Diameter in m.
+    """
 
     wavelength = scipy.constants.c / frequency
-    norm_rcs = rcs/(wavelength**2)
+    norm_rcs = np.asarray(rcs)/(wavelength**2)
     norm_diameter = norm_rcs_to_norm_diameter(norm_rcs)
     diameter = norm_diameter * wavelength
     return diameter
@@ -122,14 +142,17 @@ def plot_rcs(frequency, title=None, diameter=None, ref_diameter=None, use_db_sca
     at the specified frequency.
 
     Args:
-        frequency ([type]): Frequency of the radar in Hz.
-        title ([type], optional): A text string to display as the title of the figure. Defaults to None.
-        diameter ([type], optional): An array or list of diameters [m] used to generate the continous line. If None then
+        frequency (float): Frequency of the radar in Hz.
+        title ([str], optional): A text string to display as the title of the figure. Defaults to None.
+        diameter ([float], optional): An array or list of diameters [m] used to generate the continous line. If None then
         we'll use values in the range from 0.01 to 10 meters. Defaults to None.
-        ref_diameter ([type], optional): An array or list of diameters [m] used to mark particular reference points
+        ref_diameter ([float], optional): An array or list of diameters [m] used to mark particular reference points
         on the graph. If none then we'll use values of 0.02, 0.1, 1, 5, and 10 meters. Defaults to None.
-        use_db_scale ([type], optional): Flag to indicate whether the Y-axis should be expressed in decibels dB m^2
+        use_db_scale ([bool], optional): Flag to indicate whether the Y-axis should be expressed in decibels dB m^2
         or linear units. The default value is True.
+
+    Returns:
+        fig, ax: The matplotlib figure and axes objects.
     """
 
     # Default diameters range is 0.01 to 10 meters. We'll use these to
@@ -163,18 +186,20 @@ def plot_rcs(frequency, title=None, diameter=None, ref_diameter=None, use_db_sca
 
     if use_db_scale:
         ax.set_ylabel('RCS [dB sm]')
+        ax.set_ylim(ymin=-100, ymax=20)
         rcs = 10*np.log10(rcs)
         ref_rcs = 10*np.log10(ref_rcs)
     else:
         ax.set_yscale('log')
+        ax.set_ylim(ymin=1e-10, ymax=100)
         ax.set_ylabel('RCS [$m^2$]')
 
     ax.set_xscale('log')
     ax.set_xlim(xmin=0.01)
     ax.set_xlabel('Sphere Diameter [m]')
 
-    ax.plot(diameter, rcs)
-    ax.scatter(ref_diameter, ref_rcs)
+    ax.plot(diameter, rcs, color='black')
+    ax.scatter(ref_diameter, ref_rcs, color='black')
     ax.annotate(f'Reference spheres at {ref_diameter} m', xy=(0.5, 0.1), xycoords='axes fraction',
                 ha='center')
     # label the reference points
@@ -189,6 +214,8 @@ def plot_rcs(frequency, title=None, diameter=None, ref_diameter=None, use_db_sca
     for s in ['top', 'right']:
         ax.spines[s].set_visible(False)
 
+    return fig, ax
+
 
 if __name__ == '__main__':
 
@@ -197,17 +224,19 @@ if __name__ == '__main__':
     diameter = np.linspace(0.001, 10)
 
     # calculate the RCS from the diameter
-    rcs = diameter_to_rcs(diameter, frequency)
+    rcs = diameter_to_rcs(frequency, diameter)
 
     # now try inverting the equation to get the diameter back
-    diameter_check = rcs_to_diameter(rcs, frequency)
+    diameter_check = rcs_to_diameter(frequency, rcs)
 
     # do we match?
-    print(np.allclose(diameter, diameter_check, rtol=0.001))
+    rtol = 0.0001
+    print(f"Do the values match at rtol={rtol}? ", np.allclose(diameter, diameter_check, rtol=rtol))
 
-    # where did we fail?
+    # How well did they match?
     for d, c in zip(diameter, diameter_check):
-        print(f'{d:25.3f}  {c:25.3f}   {d==c:10b}  {100*(c-d)/d:12.1f}% error')
+        print(f'{d:25.3f}  {c:25.3f}   {d==c:10b}  {100*(c-d)/d:12.2f}% error')
 
-    test_rcs = diameter_to_rcs(diameter[9], frequency)
-    rcs_to_diameter(test_rcs, frequency)
+    # test that things work with individual numbers, not just arrays.
+    test_rcs = diameter_to_rcs(frequency, diameter[9])
+    test_diameter = rcs_to_diameter(frequency, test_rcs)
