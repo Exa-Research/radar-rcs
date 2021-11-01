@@ -205,7 +205,7 @@ def plot_rcs(frequency, title=None, diameter=None, ref_diameter=None, use_db_sca
     # label the reference points
     for i, txt in enumerate(ref_rcs):
         ax.annotate(f'{txt:.3g}' , xy=(ref_diameter[i], ref_rcs[i]), textcoords='offset points',
-                    xytext=(-30, 10))
+                    xytext=(-20, 10))
 
     ax.set_title(title)
     ax.xaxis.set_major_formatter(formatter);
@@ -215,6 +215,21 @@ def plot_rcs(frequency, title=None, diameter=None, ref_diameter=None, use_db_sca
         ax.spines[s].set_visible(False)
 
     return fig, ax
+
+
+def max_antenna_gain(model, size, frequency, efficiency):
+    
+    wavelength = scipy.constants.c / frequency
+    
+    if model == 'Parabolic':
+        max_gain = efficiency * (np.pi * size / wavelength)**2
+        
+    else:
+        
+        raise ValueError('Unknown antenna model')
+        
+    # return value in dB
+    return 10*np.log10(max_gain)
 
 
 if __name__ == '__main__':
